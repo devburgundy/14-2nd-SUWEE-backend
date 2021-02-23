@@ -43,6 +43,8 @@ class MyLibraryView(View):
 
 
 class LibraryBookListView(View):
+
+
     @check_auth_decorator
     def get(self, request):
         user_id  = request.user

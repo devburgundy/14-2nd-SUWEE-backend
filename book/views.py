@@ -25,7 +25,20 @@ from .modules.numeric import get_reading_numeric
 from share.decorators import check_auth_decorator
 
 class TodayBookView(View):
-    def get (self, request):
+    """
+    오늘의 추천 책 조회
+
+    Author: 고수희
+
+    History: 2020-11-24(고수희) : 초기 생성
+             2020-11-27(고수희) : 1차 수정 - 리스트 조회 시 대댓글 리스트도 함께 나오도록 수정
+             2021-01-20(고수희) : 2차 수정 - 변수 명 수정, 주석 추가
+
+    Returns: 댓글 정보 리스트
+
+    """
+
+    def get(self, request):
 
         today      = date.today().strftime('%Y-%m-%d')
         today_book = Book.objects.prefetch_related(
@@ -55,25 +68,39 @@ class TodayBookView(View):
 
 
 class RecentlyBookView(View):
-    def get (self, request):
-        day    = request.GET.get('day', '30')
-        limit  = request.GET.get('limit', '10')
+    """
+    최근 출간 (1달 이전 출간) 책 리스트 조회
 
-        today          = date.today()
-        previous_days  = today - timedelta(days=int(day))
+    Author: 고수희
+
+    History: 2020-12-03(고수희) : 초기 생성
+             2020-12-03(고수희) : 1차 수정 - querystring 처리
+             2020-12-03(고수희) : 2차 수정 - 변수 삭제 및 구조 수정
+             2021-02-08(고수희) : 3차 수정 - 주석 추가
+
+    Returns: 최근 1달 이전에 출간된 책 리스트
+
+    """
+
+    def get(self, request):
+        day    = request.GET.get('day', '30')  # 조회할 출간 일자 : 기본값 30일
+        limit  = request.GET.get('limit', '10')  # 출력할 책 리스트의 갯수 : 기본값 10일
+
+        today          = date.today()  # 오늘 날짜 조회
+        previous_days  = today - timedelta(days=int(day))  # 오늘 날짜 기준 조회할 출간일자
 
         books = [{
-            "id"     : book.id,
-            "title"  : book.title,
-            "image"  : book.image_url,
-            "author" : book.author
+            "id"     : book.id,  # 책 id
+            "title"  : book.title,  # 책 타이틀
+            "image"  : book.image_url,  # 책 표지 이미지
+            "author" : book.author  # 책 저자
             } for book in (Book.objects.filter(
-                publication_date__range=[previous_days,today])
+                publication_date__range=[previous_days, today])
                 .order_by('-publication_date')[:int(limit)])]
 
         if not books:
-            return JsonResponse({"message":"NO_BOOKS"}, status=400)
-        return JsonResponse({"oneMonthBook":books}, status=200)
+            return JsonResponse({"message": "NO_BOOKS"}, status=400)
+        return JsonResponse({"oneMonthBook": books}, status=200)
 
 class BookDetailView(View):
     def get(self, request, book_id):
@@ -101,30 +128,43 @@ class BookDetailView(View):
             return JsonResponse({'message':'NOT_EXIST_BOOK'}, status=400)
 
 class CommingSoonBookView(View):
-    def get (self, request):
-        day    = request.GET.get('day', '30')
-        limit  = request.GET.get('limit', '10')
+    """
+    출간 예정 책(당일 기준 1달 이내) 리스트 조회
 
-        today            = date.today()
-        next_publication = today + timedelta(days=int(day))
-        min_day          = today + timedelta(days=1)
-        max_day          = today + timedelta(days=5)
+    Author: 고수희
+
+    History: 2020-12-04(고수희) : 초기 생성
+             2020-12-04(고수희) : 1차 수정 - 변수 명 수정
+             2021-02-08(고수희) : 2차 수정 - 주석 추가
+
+    Returns: 1달 이내 출간 책 리스트
+
+    """
+
+    def get(self, request):
+        day    = request.GET.get('day', '30')  # 조회할 출간 일자 : 기본값 30일
+        limit  = request.GET.get('limit', '10')  # 츨력할 책 리스트 갯수: 기본값 10일
+
+        today            = date.today()  # 오늘 날짜 조회
+        next_publication = today + timedelta(days=int(day))  # 조회할 다음 출간일
+        min_day          = today + timedelta(days=1)  # 당일 기준 1일 이내 출간일
+        max_day          = today + timedelta(days=5)  # 당일 기준 5일 이내 출간일
 
         book_list = [{
-            "id"     : book.id,
-            "title"  : book.title,
-            "image"  : book.image_url,
-            "author" : book.author,
-            "date"   : (book.publication_date - today).days
+            "id"     : book.id,  # 책 id
+            "title"  : book.title,  # 책 제목
+            "image"  : book.image_url,  # 책 표지 이미지
+            "author" : book.author,  # 책 저자
+            "date"   : (book.publication_date - today).days  # 5일 이내에 출간 예정이면 일자 표현, 이후 출간이면 "n월 n일" 형태로 출력
                 if min_day <= book.publication_date <= max_day
                 else book.publication_date.strftime('%m월%d')
         } for book in (Book.objects.filter(
             publication_date__range=[min_day, next_publication]).order_by
-            ('publication_date')[:int(limit)])]
+            ('publication_date')[:int(limit)])]  # 출간일 순으로 오름차순으로 출력
 
         if not book_list:
-            return JsonResponse({"message":"NO_BOOKS"}, status=400)
-        return JsonResponse({"commingSoonBook":book_list}, status=200)
+            return JsonResponse({"message": "NO_BOOKS"}, status=400)
+        return JsonResponse({"commingSoonBook": book_list}, status=200)
 
 
 class SearchBookView(View):
@@ -217,62 +257,88 @@ class ReviewLikeView(View):
             return JsonResponse({'message':'SUCCESS'}, status=200)
 
 class BestSellerBookView(View):
-    def get (self, request):
-        keyword = request.GET.get('keyword', '1')
-        limit   = request.GET.get('limit', '10')
+    """
+    사용자 서재에 가장 많이 담긴 베스트 셀러 책 리스트 조회
+
+    Author: 고수희
+
+    History: 2020-11-24(고수희) : 초기 생성
+             2020-11-27(고수희) : 1차 수정 - 리스트 조회 시 대댓글 리스트도 함께 나오도록 수정
+             2021-01-20(고수희) : 2차 수정 - 변수 명 수정, 주석 추가
+
+    Returns: 베스트셀러 책 리스트
+
+    """
+
+    def get(self, request):
+        keyword = request.GET.get('keyword', '1')  # 태그의 번호
+        limit   = request.GET.get('limit', '10')  # 출력할 책의 갯수
 
         if int(keyword) in range(2,7):
-           books =  UserBook.objects.select_related('book').filter(
+           books = UserBook.objects.select_related('book').filter(
                book__keyword_id=int(keyword)).annotate(count=Count(
                    'book_id')).order_by('-count')[:int(limit)]
            if not books:
-               return JsonResponse ({"message" : "NO_BOOKS"}, status = 400)
+               return JsonResponse({"message": "NO_BOOKS"}, status=400)
 
         else:
-           books =  UserBook.objects.select_related('book').filter(
+           books = UserBook.objects.select_related('book').filter(
                book__keyword_id__gte=2).annotate(count=Count(
                    'book_id')).order_by('-count')[:int(limit)]
            if not books:
-               return JsonResponse ({"message" : "NO_BOOKS"}, status = 400)
+               return JsonResponse({"message": "NO_BOOKS"}, status=400)
 
         book_list = [{
-            "id"     : book.book.id,
-            "title"  : book.book.title,
-            "image"  : book.book.image_url,
-            "author" : book.book.author
+            "id"     : book.book.id,  # 책 id
+            "title"  : book.book.title,  # 책 제목
+            "image"  : book.book.image_url,  # 책 표지 이미지
+            "author" : book.book.author  # 책 저자
         } for book in books]
         return JsonResponse ({"bestSellerBook":book_list}, status=200)
 
 class RecommendBookView(View):
-    def get (self, request):
-        keyword    = request.GET.get('keyword', '2')
-        limit      = request.GET.get('limit', '6')
+    """
+    해당 주간에 사용자 서재에 가장 많이 담긴 추천 책 조회
+
+    Author: 고수희
+
+    History: 2020-11-24(고수희) : 초기 생성
+             2020-11-27(고수희) : 1차 수정 - 리스트 조회 시 대댓글 리스트도 함께 나오도록 수정
+             2021-01-10(고수희) : 2차 수정 - 변수 명 수정, 주석 추가
+
+    Returns: 추천 책 리스트
+
+    """
+
+
+    def get(self, request):
+        keyword    = request.GET.get('keyword', '2')  # 태그 번호
+        limit      = request.GET.get('limit', '6')  # 출력할 책의 갯수
 
         today_iso  = datetime.datetime.now().isocalendar()
-        year       = today_iso[0]
-        week       = today_iso[1]
-        day        = today_iso[2]
+        year       = today_iso[0]  # 현재년도
+        week       = today_iso[1]  # 현재 날짜 (월)
 
-        week_start = date.fromisocalendar(year, week, 1)
-        now        = datetime.datetime.now()
+        week_start = date.fromisocalendar(year, week, 1)  # 한 주의 가장 첫 시작 일요일 추출
+        now        = datetime.datetime.now()  # 오늘 날짜
 
-        books =  LibraryBook.objects.prefetch_related('book_set').filter(
+        books = LibraryBook.objects.prefetch_related('book_set').filter(
             created_at__range=[week_start, now], book__keyword_id=int(
                 keyword)).values('book_id', 'book__title', 'book__image_url',
                                 'book__author').annotate(count=Count(
                     'book_id')).order_by('-count')[:int(limit)]
 
-        book_list =[
+        book_list = [
             {
-                "id"     : book.get('book_id'),
-                "title"  : book.get('book__title'),
-                "image"  : book.get('book__image_url'),
-                "author" : book.get('book__author')
+                "id"     : book.get('book_id'),  # 책 id
+                "title"  : book.get('book__title'),  # 책 제목
+                "image"  : book.get('book__image_url'),  # 책 표지 이미지
+                "author" : book.get('book__author')  # 책 저자
             } for book in books]
 
         if not book_list:
-            return JsonResponse ({"message" : "NO_BOOKS"}, status=400)
-        return JsonResponse ({"recommendBook":book_list}, status=200)
+            return JsonResponse({"message": "NO_BOOKS"}, status=400)
+        return JsonResponse({"recommendBook": book_list}, status=200)
 
 class LandingPageView(View):
     def get(self, request):
