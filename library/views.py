@@ -1,15 +1,13 @@
 import json, requests
-from datetime         import date
 
 from django.http      import JsonResponse
 from django.views     import View
 from django.db.models import (
     Sum,
-    Count,
-    Max,
+    Count
 )
 
-from .models   import Library, LibraryBook
+from .models          import Library, LibraryBook
 from user.models      import User, UserBook
 from book.models      import Book
 from share.decorators import check_auth_decorator
@@ -17,9 +15,9 @@ from share.decorators import check_auth_decorator
 
 class MyLibraryView(View):
     @check_auth_decorator
-    def post(self,request):
+    def post(self, request):
         data = json.loads(request.body)
-        try :
+        try:
             user      = request.user
             book_id   = data['book_id']
             library   = Library.objects.filter(user_id=user)
@@ -43,32 +41,43 @@ class MyLibraryView(View):
 
 
 class LibraryBookListView(View):
+    """
+    내 서재 책 리스트 정렬 및 조회
 
+    Author: 고수희
+
+    History: 2020-12-10(고수희) : 초기 생성
+             2020-12-11(고수희) : 1차 수정 - 정렬 변경
+             2021-01-20(고수희) : 2차 수정 - 변수 명 수정, 주석 추가
+
+    Returns: 내 서재 책 리스트
+
+    """
 
     @check_auth_decorator
     def get(self, request):
         user_id  = request.user
-        ordering = request.GET.get('ordering', '1')
+        ordering = request.GET.get('ordering', '1')  # 책 정렬 순서
 
         conditions = {
-            1 : '-created_at',
-            2 : 'book__title',
-            3 : 'book__author',
-            4 : '-book__publication_date'
+            1: '-created_at',  # 생성일자 내림차순
+            2: 'book__title',  # 책 제목순
+            3: 'book__author',  # 책 저자 순
+            4: '-book__publication_date'  # 책 출간일 내림차순
         }
 
         books = LibraryBook.objects.select_related(
-            'book','library').filter(
+            'book', 'library').filter(
                 library__user_id=user_id).order_by(conditions[int(ordering)])
 
         book_list = {
             "libraryBook" : [{
-                "id"     : library.book.id,
-                "title"  : library.book.title,
-                "image"  : library.book.image_url,
-                "author" : library.book.author
+                "id"     : library.book.id,  # 책 id
+                "title"  : library.book.title,  # 책 제목
+                "image"  : library.book.image_url,  # 책 표지 이미지
+                "author" : library.book.author  # 책 저자
             } for library in books]}
-        return JsonResponse (book_list, status = 200)
+        return JsonResponse(book_list, status=200)
 
 
 class StatisticsView(View):
@@ -100,19 +109,32 @@ class StatisticsView(View):
 
 
 class LibraryInfoView(View):
+    """
+    내 서재 정보 조회
+
+    Author: 고수희
+
+    History: 2020-12-10(고수희) : 초기 생성
+             2020-12-11(고수희) : 1차 수정 - url 수정 및 토큰 user id 삭제
+             2021-01-20(고수희) : 2차 수정 - 변수 명 수정, 주석 추가
+
+    Returns: 내 서재 정보
+
+    """
+
     @check_auth_decorator
     def get(self, request):
         user_id = request.user
 
         library_info = {
             "libraryInfo" : [{
-                "libraryName"  : library.name,
-                "libraryImage" : library.image_url,
-                "userName"     : library.user.nickname,
-                "userImage"    : library.user.image_url
+                "libraryName"  : library.name,  # 서재 이름
+                "libraryImage" : library.image_url,  # 서재 백그라운드 이미지
+                "userName"     : library.user.nickname,  # 사용자 닉네임
+                "userImage"    : library.user.image_url  # 사용자 프로필 이미지
                     if library.user.image_url is not None
                     else '',
             } for library in Library.objects.filter(
                 user_id=user_id)]}
 
-        return JsonResponse (library_info, status = 200)
+        return JsonResponse (library_info, status=200)
